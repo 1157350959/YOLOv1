@@ -105,7 +105,7 @@ def main():
         if mAP > best_mAP and mAP > 0.85:
             best_mAP = mAP
             save({"state_dict": model.state_dict(),
-                  "optimizer": optim.state_dict()}, filename=LOAD_MODEL_FILE)
+                  "optimizer": optimizer.state_dict()}, filename=LOAD_MODEL_FILE)
             import time
             time.sleep(10)
 
