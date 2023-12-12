@@ -1,12 +1,9 @@
-import torch
-import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
-import torchvision.transforms.functional as ft
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from dataset import Dataset
 from utils import *
+from dataset import Dataset
 from loss import Loss
 from architecture import YOLO
 
@@ -17,9 +14,11 @@ torch.manual_seed(seed)
 
 LEARNING_RATE = 3e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 8 # paper used 64
+BATCH_SIZE = 64 # paper used 64
 WEIGHT_DECAY = 5e-4 # paper used 5e-4
 EPOCHS = 135
+IOU_THRESHOLD = 0.5
+PROB_THRESHOLD = 0.4
 IMG_DIR = "VOCdevkit/img/"
 TAR_DIR = "VOCdevkit/tar/"
 LOAD_MODEL = False
@@ -67,7 +66,7 @@ def main():
     loss = Loss()
     if LOAD_MODEL:
         load(torch.load(LOAD_MODEL_FILE), model, optimizer)
-    train_dataset = Dataset("8examples.csv", transforms=transforms, img_dir=IMG_DIR, tar_dir=TAR_DIR)
+    train_dataset = Dataset("train.csv", transforms=transforms, img_dir=IMG_DIR, tar_dir=TAR_DIR)
     #test_dataset = Dataset("VOCdevkit/tar/test.csv", transforms=transforms, img_dir=IMG_DIR, tar_dir=TAR_DIR)
 
     train_loader = DataLoader(dataset=train_dataset,
@@ -90,19 +89,19 @@ def main():
                 for idx, (x, y) in enumerate(train_loader):
                     x, y = x.to(DEVICE), y.to(DEVICE)
                     bboxes, _ = bbox_rescale(model(x), torch.Tensor([]))
-                    for idx in range(8):
-                        bbox = non_max_supression(bboxes[idx], 0.5, 0.4)
-                        plot(x[idx].permute(1, 2, 0).to("cpu"), bbox)
-                    pred_bboxes, tar_bboxes = get_bboxes(train_loader, model, iou_thres=0.5, prob_thres=0.4)
-                    mAP = mean_average_precision(pred_bboxes, tar_bboxes, iou_thres=0.5)
+                    for bbox_idx in range(BATCH_SIZE):
+                        bbox = non_max_supression(bboxes[bbox_idx], IOU_THRESHOLD, PROB_THRESHOLD)
+                        plot(x[bbox_idx].permute(1, 2, 0).to("cpu"), bbox)
+                    pred_bboxes, tar_bboxes = get_bboxes(train_loader, model, IOU_THRESHOLD, PROB_THRESHOLD)
+                    mAP = mean_average_precision(pred_bboxes, tar_bboxes, IOU_THRESHOLD)
                     print(f"mAP of current model: {mAP}\n")
                     import sys
                     sys.exit()
         train(train_loader, model, optimizer, loss)
-        pred_bboxes, tar_bboxes = get_bboxes(train_loader, model, iou_thres=0.5, prob_thres=0.4)
-        mAP = mean_average_precision(pred_bboxes, tar_bboxes, iou_thres=0.5)
+        pred_bboxes, tar_bboxes = get_bboxes(train_loader, model, IOU_THRESHOLD, PROB_THRESHOLD)
+        mAP = mean_average_precision(pred_bboxes, tar_bboxes, IOU_THRESHOLD)
         print(f"Epoch: {epoch} Train mAP: {mAP}\n")
-        if mAP > best_mAP and mAP > 0.85:
+        if mAP > best_mAP:
             best_mAP = mAP
             save({"state_dict": model.state_dict(),
                   "optimizer": optimizer.state_dict()}, filename=LOAD_MODEL_FILE)
@@ -112,5 +111,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
