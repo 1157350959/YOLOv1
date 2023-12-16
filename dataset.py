@@ -19,9 +19,11 @@ def scale_box(img_width, img_height, b):
 # From official website, the 20 classes are
 classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
            "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+#trainset = [('2007', 'trainval'), ('2012', 'trainval')]
+trainset = [('2007', "train")]
 if not os.path.exists("VOCdevkit/tar/"):
     os.makedirs("VOCdevkit/tar/", exist_ok=True)
-    for year, fold in [('2007', "trainval"), ('2012', 'trainval')]:
+    for year, fold in trainset:
         annotation_dir = 'VOCdevkit/VOC%s/Annotations/' % year
         file_list = os.listdir(annotation_dir)
         for filename in file_list:
@@ -48,14 +50,14 @@ if not os.path.exists("VOCdevkit/tar/"):
                     with open(tar_file_dir, 'a') as out_file:
                         out_file.write(str(cls_id) + " " + " ".join([str(_) for _ in bbox]) + "\n")
 
+    with open('train.csv', "w", newline="") as trainval:
+        writer = csv.writer(trainval)
     # generate .csv file containing [imgname.jpg imgname.txt] mappings for Dataset usage
-    for year, fold in [('2007', "trainval"), ('2012', 'trainval')]:
-        lines = open('VOCdevkit/VOC%s/ImageSets/Main/%s.txt' % (year, fold)).readlines()
-        with open('VOCdevkit/tar/%s.csv' % fold, "w") as trainval:
+        for year, fold in trainset:
+            lines = open('VOCdevkit/VOC%s/ImageSets/Main/%s.txt' % (year, fold)).readlines()
             for line in lines:
-                img_name = line.replace("\n", "")
-                txt_name = img_name.replace(".jpg", ".txt")
-                writer = csv.writer(trainval)
+                img_name = (line + ".jpg").replace("\n", "")
+                txt_name = img_name.replace("jpg", "txt")
                 writer.writerow([img_name, txt_name])
 
 if not os.path.exists("VOCdevkit/img/"):
